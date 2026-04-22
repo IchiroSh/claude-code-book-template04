@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#080018">
+  <title>BLOCK BREAKER</title>
+  <link rel="stylesheet" href="main7.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- HUD -->
+    <header id="hud">
+      <div class="hud-item">
+        <span class="label">SCORE</span>
+        <span class="value score" id="score-val">0000000</span>
+      </div>
+      <div class="hud-item center">
+        <span class="label">LEVEL</span>
+        <span class="value level" id="level-val">1</span>
+      </div>
+      <div class="hud-item right">
+        <span class="label">LIVES</span>
+        <span class="value lives" id="lives-val">♥♥♥</span>
+      </div>
+    </header>
+
+    <!-- Game area -->
+    <div id="canvas-wrap">
+      <canvas id="gameCanvas" tabindex="0"></canvas>
+
+      <!-- Overlays -->
+      <div id="ov-title" class="overlay active">
+        <div class="overlay-box">
+          <h1>BLOCK<br>BREAKER</h1>
+          <p class="hi-row">HI-SCORE &nbsp;<span id="hi-val">0000000</span></p>
+          <button id="btn-start" class="btn btn-primary">START</button>
+          <p class="hint-text">← → / マウス / タッチ でパドル操作<br>SPACE / タップ でボール発射</p>
+        </div>
+      </div>
+
+      <div id="ov-clear" class="overlay">
+        <div class="overlay-box">
+          <h2 class="clear">CLEAR! 🎉</h2>
+          <p class="sub" id="clear-sub"></p>
+          <p class="big-score" id="clear-score"></p>
+          <button id="btn-next" class="btn btn-success">NEXT LEVEL →</button>
+        </div>
+      </div>
+
+      <div id="ov-gameover" class="overlay">
+        <div class="overlay-box">
+          <h2 class="gameover">GAME OVER</h2>
+          <p class="sub" id="go-sub"></p>
+          <p class="big-score" id="go-score"></p>
+          <button id="btn-retry" class="btn btn-danger">RETRY</button>
+        </div>
+      </div>
+
+      <!-- Ball launch hint -->
+      <div id="launch-hint">タップ / SPACE でボール発射</div>
+    </div>
+
+  </div>
+  <script src="main7.js"></script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Woven City Walk</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #87ceeb; overflow: hidden; font-family: 'Helvetica Neue', Arial, sans-serif; }
+    canvas { display: block; }
+
+    #start-screen {
+      position: fixed; inset: 0;
+      background: linear-gradient(160deg, #0d3b4f 0%, #1a6b6b 50%, #2e8b57 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: #fff; z-index: 100;
+    }
+    #start-screen h1 { font-size: 52px; font-weight: 900; letter-spacing: 2px; color: #a8f0e0; text-shadow: 0 2px 20px rgba(0,255,200,0.4); }
+    #start-screen .subtitle { font-size: 18px; color: #cee; margin: 10px 0 6px; }
+    #start-screen .desc { font-size: 15px; color: #9dc; margin-bottom: 30px; }
+    #start-screen button {
+      padding: 14px 44px; background: #2a9d8f; color: #fff;
+      border: none; border-radius: 30px; font-size: 20px; font-weight: bold;
+      cursor: pointer; box-shadow: 0 4px 20px rgba(42,157,143,0.5);
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    #start-screen button:hover { transform: scale(1.05); box-shadow: 0 6px 28px rgba(42,157,143,0.7); }
+    #start-screen .controls { margin-top: 22px; font-size: 13px; color: #8cc; }
+
+    #counter {
+      position: fixed; top: 18px; right: 20px;
+      background: rgba(255,255,255,0.92); backdrop-filter: blur(6px);
+      padding: 10px 22px; border-radius: 16px;
+      font-size: 17px; font-weight: bold; color: #1a5f4a;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    }
+    #counter span { color: #2a9d8f; }
+
+    #prompt {
+      position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.72); color: #fff; backdrop-filter: blur(4px);
+      padding: 10px 28px; border-radius: 24px; font-size: 15px;
+      display: none; white-space: nowrap;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+
+    #robot-name {
+      position: fixed; bottom: 130px; left: 50%; transform: translateX(-50%);
+      background: rgba(42,157,143,0.85); color: #fff;
+      padding: 6px 18px; border-radius: 14px; font-size: 14px;
+      display: none; white-space: nowrap;
+    }
+
+    #controls-hint {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.55); color: #ccc; backdrop-filter: blur(4px);
+      padding: 7px 20px; border-radius: 12px; font-size: 12px;
+    }
+
+    #goal {
+      position: fixed; inset: 0; display: none;
+      background: rgba(0,60,40,0.85); backdrop-filter: blur(8px);
+      align-items: center; justify-content: center; flex-direction: column;
+      z-index: 50;
+    }
+    #goal.show { display: flex; }
+    #goal-box {
+      background: #fff; border-radius: 24px; padding: 50px 70px;
+      text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+      animation: popIn 0.5s cubic-bezier(.2,1.4,.4,1) both;
+    }
+    @keyframes popIn { from{transform:scale(0.5);opacity:0} to{transform:scale(1);opacity:1} }
+    #goal-box h1 { font-size: 52px; color: #2a9d8f; margin-bottom: 14px; }
+    #goal-box p { font-size: 18px; color: #555; margin: 6px 0; }
+    #goal-box .restart {
+      margin-top: 26px; padding: 12px 36px; background: #2a9d8f; color: #fff;
+      border: none; border-radius: 24px; font-size: 18px; cursor: pointer;
+    }
+
+    #crosshair {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: 16px; height: 16px; pointer-events: none;
+    }
+    #crosshair::before, #crosshair::after {
+      content: ''; position: absolute; background: rgba(255,255,255,0.7);
+    }
+    #crosshair::before { width: 2px; height: 100%; left: 7px; top: 0; }
+    #crosshair::after  { width: 100%; height: 2px; top: 7px; left: 0; }
+  </style>
+</head>
+<body>
+  <!-- Start screen -->
+  <div id="start-screen">
+    <h1>🌿 Woven City Walk</h1>
+    <p class="subtitle">未来都市「Woven City」を歩いてロボットたちに挨拶しよう！</p>
+    <p class="desc">10体のロボット全員に挨拶したらゴール！</p>
+    <button id="startBtn">START</button>
+    <p class="controls">WASD: 移動 ｜ マウス: 視点 ｜ E: 挨拶</p>
+  </div>
+
+  <!-- HUD -->
+  <div id="counter">挨拶: <span id="greet-count">0</span> / 10</div>
+  <div id="robot-name"></div>
+  <div id="prompt">🤖 [E] で挨拶する</div>
+  <div id="controls-hint">WASD: 移動 ｜ マウス: 視点 ｜ E: 挨拶</div>
+  <div id="crosshair"></div>
+
+  <!-- Goal screen -->
+  <div id="goal">
+    <div id="goal-box">
+      <h1>🎉 ゴール！</h1>
+      <p>全員のロボットに挨拶できました！</p>
+      <p style="color:#2a9d8f;font-weight:bold;margin-top:10px">Woven City の仲間になれました！</p>
+      <button class="restart" onclick="location.reload()">もう一度</button>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="main6.js"></script>
+</body>
+</html>

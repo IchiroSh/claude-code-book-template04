@@ -437,7 +437,6 @@ function makeRobot(index) {
   const hL = new THREE.Mesh(hGeo, wMat); hL.position.set(-0.56, 0.48, 0); root.add(hL);
   const hR = new THREE.Mesh(hGeo, wMat); hR.position.set( 0.56, 0.48, 0); root.add(hR);
   const shoulderGeo = new THREE.BoxGeometry(0.32, 0.22, 0.32);
-  root.add(Object.assign(new THREE.Mesh(shoulderGeo, cMat), { position: { x: -0.56, y: 1.27, z: 0 } }));
   const shoulderL = new THREE.Mesh(shoulderGeo, cMat); shoulderL.position.set(-0.56, 1.27, 0); root.add(shoulderL);
   const shoulderR = new THREE.Mesh(shoulderGeo, cMat); shoulderR.position.set( 0.56, 1.27, 0); root.add(shoulderR);
 

@@ -882,35 +882,116 @@ function animate() {
 }
 
 // ─── AI Init ──────────────────────────────────────────────────────────────────
-async function initAI() {
-  progressTextEl.textContent = 'AIモデルをダウンロード中...';
-  try {
-    generator = await pipeline(
-      'text-generation',
-      'onnx-community/SmolLM2-135M-Instruct',
-      {
-        dtype: 'q4f16',
-        progress_callback: (p) => {
-          if (p.status === 'progress') {
-            const pct = Math.min(100, Math.round(p.progress ?? (p.loaded / p.total * 100) ?? 0));
-            progressBarEl.style.width  = pct + '%';
-            progressTextEl.textContent = `AIモデルをロード中... ${pct}%`;
-          } else if (p.status === 'initiate') {
-            const fname = (p.file || '').split('/').pop();
-            progressTextEl.textContent = `ダウンロード中: ${fname}`;
-          } else if (p.status === 'ready') {
-            progressBarEl.style.width  = '100%';
-            progressTextEl.textContent = '準備完了！';
-          }
-        },
+
+function startDotAnimation(baseText) {
+  let step = 0;
+  const DOTS = ['', '.', '..', '...'];
+  const id = setInterval(() => {
+    step = (step + 1) % DOTS.length;
+    progressTextEl.textContent = baseText + DOTS[step];
+  }, 500);
+  return () => clearInterval(id);
+}
+
+function makeProgressCallback(stopDots, onLastEventTime) {
+  const fileProgress = new Map();
+  let firstEventSeen = false;
+
+  function aggregatePct() {
+    let sumLoaded = 0, sumTotal = 0;
+    for (const { loaded, total } of fileProgress.values()) { sumLoaded += loaded; sumTotal += total; }
+    return sumTotal === 0 ? 0 : Math.min(100, Math.round((sumLoaded / sumTotal) * 100));
+  }
+
+  return function progressCallback(p) {
+    onLastEventTime(Date.now());
+    if (!firstEventSeen) { firstEventSeen = true; stopDots(); }
+    const fname = (p.file || '').split('/').pop();
+
+    if (p.status === 'download') {
+      progressTextEl.textContent = `接続中: ${fname}`;
+    } else if (p.status === 'initiate') {
+      fileProgress.set(p.file, { loaded: 0, total: p.total || 0 });
+      progressTextEl.textContent = `ダウンロード中: ${fname}`;
+    } else if (p.status === 'progress') {
+      fileProgress.set(p.file, { loaded: p.loaded || 0, total: p.total || 0 });
+      const pct = p.progress != null ? Math.min(100, Math.round(p.progress)) : aggregatePct();
+      progressBarEl.style.width  = pct + '%';
+      progressTextEl.textContent = `ダウンロード中 ${pct}%: ${fname}`;
+    } else if (p.status === 'done') {
+      if (fileProgress.has(p.file)) {
+        const e = fileProgress.get(p.file);
+        fileProgress.set(p.file, { loaded: e.total, total: e.total });
       }
-    );
+      progressBarEl.style.width  = aggregatePct() + '%';
+      progressTextEl.textContent = `モデルを初期化中... ${aggregatePct()}%`;
+    } else if (p.status === 'ready') {
+      progressBarEl.style.width  = '100%';
+      progressTextEl.textContent = '準備完了！';
+    }
+  };
+}
+
+async function loadPipeline(dtype, timeoutMs) {
+  let lastEventAt = Date.now();
+  const stopDots  = startDotAnimation('接続中');
+  const silenceId = setInterval(() => {
+    if (Date.now() - lastEventAt > 30_000)
+      progressTextEl.textContent = 'ダウンロードが遅延しています。接続を確認してください...';
+  }, 5_000);
+  try {
+    return await Promise.race([
+      pipeline('text-generation', 'onnx-community/SmolLM2-135M-Instruct', {
+        dtype,
+        progress_callback: makeProgressCallback(stopDots, t => { lastEventAt = t; }),
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`Timeout ${timeoutMs}ms`)), timeoutMs)),
+    ]);
+  } finally {
+    stopDots();
+    clearInterval(silenceId);
+  }
+}
+
+function showRetryButton() {
+  const existing = document.getElementById('ai-retry-btn');
+  if (existing) existing.remove();
+  const btn = document.createElement('button');
+  btn.id = 'ai-retry-btn';
+  btn.textContent = '再試行';
+  btn.style.cssText = 'margin-top:12px;padding:8px 28px;background:#2a9d8f;color:#fff;border:none;border-radius:20px;font-size:14px;cursor:pointer;display:block;margin-left:auto;margin-right:auto;';
+  btn.addEventListener('click', () => { btn.remove(); initAI(); });
+  progressTextEl.insertAdjacentElement('afterend', btn);
+}
+
+async function initAI() {
+  startBtn.disabled = true;
+  progressBarEl.style.width = '0%';
+
+  // Phase 1: q4f16 (WebGPU preferred)
+  try {
+    generator = await loadPipeline('q4f16', 60_000);
+    progressBarEl.style.width  = '100%';
+    progressTextEl.textContent = '準備完了！STARTを押してください';
+    startBtn.disabled = false;
+    return;
+  } catch (err) {
+    console.warn('q4f16 failed, trying q4:', err.message);
+  }
+
+  // Phase 2: q4 fallback (WASM compatible)
+  try {
+    progressBarEl.style.width  = '0%';
+    progressTextEl.textContent = '軽量モードで再試行中';
+    generator = await loadPipeline('q4', 90_000);
     progressBarEl.style.width  = '100%';
     progressTextEl.textContent = '準備完了！STARTを押してください';
     startBtn.disabled = false;
   } catch (err) {
-    console.error('AI load error:', err);
-    progressTextEl.textContent = 'AIロードに失敗しました。ページをリロードしてください。';
+    console.error('AI load failed:', err);
+    progressBarEl.style.width  = '0%';
+    progressTextEl.textContent = 'AIロードに失敗しました。';
+    showRetryButton();
   }
 }
 

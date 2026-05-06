@@ -938,7 +938,7 @@ async function loadPipeline(dtype, timeoutMs) {
   }, 5_000);
   try {
     return await Promise.race([
-      _pipelineFn('text-generation', 'Xenova/SmolLM-135M-Instruct', {
+      _pipelineFn('text-generation', 'onnx-community/Qwen2.5-0.5B-Instruct', {
         dtype,
         progress_callback: makeProgressCallback(stopDots, t => { lastEventAt = t; }),
       }),

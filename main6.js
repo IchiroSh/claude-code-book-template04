@@ -1,7 +1,5 @@
-import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
-
-env.useBrowserCache = false;
-env.allowLocalModels = false;
+// Transformers.js is loaded dynamically in initAI() to catch import errors visibly.
+let _pipelineFn = null;
 
 // ─── Robot AI Profiles ────────────────────────────────────────────────────────
 const ROBOT_PROFILES = [
@@ -934,14 +932,14 @@ function makeProgressCallback(stopDots, onLastEventTime) {
 
 async function loadPipeline(dtype, timeoutMs) {
   let lastEventAt = Date.now();
-  const stopDots  = startDotAnimation('接続中');
+  const stopDots  = startDotAnimation('モデルをダウンロード中');
   const silenceId = setInterval(() => {
     if (Date.now() - lastEventAt > 30_000)
       progressTextEl.textContent = 'ダウンロードが遅延しています。接続を確認してください...';
   }, 5_000);
   try {
     return await Promise.race([
-      pipeline('text-generation', 'onnx-community/SmolLM2-135M-Instruct', {
+      _pipelineFn('text-generation', 'onnx-community/SmolLM2-135M-Instruct', {
         dtype,
         progress_callback: makeProgressCallback(stopDots, t => { lastEventAt = t; }),
       }),
@@ -968,7 +966,23 @@ async function initAI() {
   startBtn.disabled = true;
   progressBarEl.style.width = '0%';
 
-  // Phase 1: q4f16 (WebGPU preferred)
+  // Step 1: load Transformers.js library dynamically (catches CDN/network errors)
+  const stopLibDots = startDotAnimation('ライブラリをロード中');
+  try {
+    const tfjs = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3');
+    _pipelineFn = tfjs.pipeline;
+    tfjs.env.useBrowserCache  = false;
+    tfjs.env.allowLocalModels = false;
+    stopLibDots();
+  } catch (err) {
+    stopLibDots();
+    console.error('Transformers.js load error:', err);
+    progressTextEl.textContent = 'ライブラリのロードに失敗しました。';
+    showRetryButton();
+    return;
+  }
+
+  // Step 2: load model — q4f16 first, fall back to q4
   try {
     generator = await loadPipeline('q4f16', 60_000);
     progressBarEl.style.width  = '100%';
@@ -979,7 +993,6 @@ async function initAI() {
     console.warn('q4f16 failed, trying q4:', err.message);
   }
 
-  // Phase 2: q4 fallback (WASM compatible)
   try {
     progressBarEl.style.width  = '0%';
     progressTextEl.textContent = '軽量モードで再試行中';

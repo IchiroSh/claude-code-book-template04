@@ -769,12 +769,16 @@ async function sendChatMessage() {
       ...chatHistory.slice(-8),
     ];
 
-    const result = await generator(messages, {
-      max_new_tokens:     60,
-      do_sample:          true,
-      temperature:        0.75,
-      repetition_penalty: 1.35,
-    });
+    const GENERATE_TIMEOUT = 60_000;
+    const result = await Promise.race([
+      generator(messages, {
+        max_new_tokens: 40,
+        do_sample:      false,
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('generation timeout')), GENERATE_TIMEOUT)
+      ),
+    ]);
 
     removeBubble(thinkBubble);
 

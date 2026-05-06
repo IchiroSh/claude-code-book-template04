@@ -938,7 +938,7 @@ async function loadPipeline(dtype, timeoutMs) {
   }, 5_000);
   try {
     return await Promise.race([
-      _pipelineFn('text-generation', 'onnx-community/SmolLM2-135M-Instruct', {
+      _pipelineFn('text-generation', 'Xenova/SmolLM-135M-Instruct', {
         dtype,
         progress_callback: makeProgressCallback(stopDots, t => { lastEventAt = t; }),
       }),
@@ -981,21 +981,21 @@ async function initAI() {
     return;
   }
 
-  // Step 2: load model — q4f16 first, fall back to q4
+  // Step 2: load model — q4 first, fall back to fp16
   try {
-    generator = await loadPipeline('q4f16', 60_000);
+    generator = await loadPipeline('q4', 90_000);
     progressBarEl.style.width  = '100%';
     progressTextEl.textContent = '準備完了！STARTを押してください';
     startBtn.disabled = false;
     return;
   } catch (err) {
-    console.warn('q4f16 failed, trying q4:', err.message);
+    console.warn('q4 failed, trying fp16:', err.message);
   }
 
   try {
     progressBarEl.style.width  = '0%';
-    progressTextEl.textContent = '軽量モードで再試行中';
-    generator = await loadPipeline('q4', 90_000);
+    progressTextEl.textContent = 'fp16モードで再試行中';
+    generator = await loadPipeline('fp16', 120_000);
     progressBarEl.style.width  = '100%';
     progressTextEl.textContent = '準備完了！STARTを押してください';
     startBtn.disabled = false;

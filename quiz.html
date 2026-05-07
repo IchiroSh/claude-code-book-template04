@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>デジタルリテラシー クイズ</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #22c55e;
+            --error: #ef4444;
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --text: #1e293b;
+            --accent: #f59e0b;
+        }
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        #app {
+            background: var(--card);
+            width: 100%;
+            max-width: 650px;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        h1 { text-align: center; color: var(--primary); font-size: 1.4rem; margin-bottom: 10px; }
+        #level-badge {
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+        .hidden { display: none; }
+        .btn-stack { display: flex; flex-direction: column; gap: 12px; }
+        button {
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s;
+            text-align: left;
+        }
+        button:hover:not(:disabled) { background: #f8fafc; border-color: var(--primary); }
+        .primary-btn { background: var(--primary); color: white; border: none; font-weight: bold; text-align: center; }
+        .primary-btn:hover { opacity: 0.9; }
+
+        #feedback {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        .correct-box { background: #dcfce7; color: #166534; border: 1px solid var(--success); display: block !important; }
+        .incorrect-box { background: #fee2e2; color: #991b1b; border: 1px solid var(--error); display: block !important; }
+        .exp-text { font-weight: normal; font-size: 0.9rem; margin-top: 8px; color: var(--text); }
+
+        .progress-bar { font-size: 0.8rem; color: #64748b; margin-bottom: 10px; }
+        .category-tag { font-size: 0.75rem; background: #e2e8f0; padding: 4px 12px; border-radius: 20px; display: inline-block; margin-bottom: 5px; }
+
+        .advice-card {
+            margin-top: 25px;
+            background: #eff6ff;
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 6px solid var(--primary);
+            text-align: left;
+        }
+        .copy-area-wrapper {
+            position: relative;
+            margin-top: 10px;
+        }
+        .copy-area {
+            background: #ffffff;
+            padding: 15px;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.95rem;
+            color: #1e40af;
+            word-break: break-all;
+            padding-right: 80px;
+            min-height: 1.2em;
+        }
+        .copy-btn {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            text-align: center;
+        }
+        .exam-link-area {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px dashed #cbd5e1;
+            text-align: center;
+        }
+        .exam-btn {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 12px 24px;
+            background-color: var(--accent);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        .exam-btn:hover { transform: scale(1.05); }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <h1>デジタルリテラシー クイズ</h1>
+    <div id="level-badge">レベルを選択してください</div>
+
+    <!-- レベル選択 -->
+    <div id="screen-start">
+        <p style="text-align: center; margin-bottom: 30px;">全カテゴリーからランダムに1問ずつ出題されます。</p>
+        <div class="btn-stack">
+            <button class="primary-btn" onclick="initQuiz(1)">レベル１を開始（全10問）</button>
+            <button class="primary-btn" onclick="initQuiz(2)">レベル２を開始（全13問）</button>
+        </div>
+    </div>
+
+    <!-- クイズ画面 -->
+    <div id="screen-quiz" class="hidden">
+        <div class="progress-bar" id="ui-progress"></div>
+        <div id="ui-category" class="category-tag"></div>
+        <p id="ui-question" style="font-size: 1.1rem; font-weight: bold; margin: 15px 0; min-height: 3em;"></p>
+        <div id="ui-options" class="btn-stack"></div>
+
+        <div id="feedback">
+            <div id="ui-result-msg" style="font-size: 1.2rem; font-weight: bold;"></div>
+            <div id="ui-explanation" class="exp-text"></div>
+            <button class="primary-btn" style="width: 100%; margin-top: 15px;" onclick="nextQuestion()">次へ進む</button>
+        </div>
+    </div>
+
+    <!-- 結果画面 -->
+    <div id="screen-result" class="hidden">
+        <h2 style="text-align: center;">結果発表</h2>
+        <p id="ui-score" style="text-align: center; font-size: 1.4rem; font-weight: bold;"></p>
+
+        <div id="ui-advice" class="advice-card">
+            <div id="weak-cat-display" style="font-weight: bold; color: var(--error); margin-bottom: 10px;"></div>
+            <p style="font-size: 0.9rem; margin: 0;">以下の質問をコピーしてAIに聞いてみましょう：</p>
+            <div class="copy-area-wrapper">
+                <div id="copy-prompt" class="copy-area"></div>
+                <button class="copy-btn" onclick="copyToClipboard()">コピー</button>
+            </div>
+        </div>
+
+        <button class="primary-btn" style="width: 100%; margin-top: 25px;" onclick="location.reload()">もう一度やってみる</button>
+
+        <div class="exam-link-area">
+            <p style="margin: 0; font-size: 0.95rem; font-weight: bold;">準備はOK？本番試験に行ってみよう！</p>
+            <a href="https://zamas.dig.toyota/" target="_blank" class="exam-btn">本番試験サイトへ</a>
+        </div>
+    </div>
+</div>
+
+<script>
+// クイズデータ (Lv1: 10カテゴリ, Lv2: 13カテゴリ)
+const Lv1quiz = {
+    "顧客・ユーザーへの共感": [
+        { q: "顧客の本当の困りごとを見つけるために、一番大切なことは？", options: ["お客さんの普段の動きをよく見て、なぜそうするのかを考える", "自社製品がどれだけすごいかを説明する", "アンケートの多数決で決める", "他社のマネをする"], ans: 0, exp: "相手の立場になって「なぜ？」を観察することが、新しいアイデアの基本です。" },
+        { q: "顧客が「これが必要だ」と言った時、どう対応するのがDXの視点ですか？", options: ["言われた通りに作る", "言葉の裏にある「本当は何を解決したいのか」を考える", "予算を確認する", "今の技術でできるか断る"], ans: 1, exp: "顧客の言葉をそのまま受け取るだけでなく、背景にある目的を探ることが重要です。" },
+        { q: "ユーザーが使いやすいと感じる「UX」を高めるための行動はどれ？", options: ["機能をできるだけ多く追加する", "使う人のITスキルが高いと想定する", "操作に迷いそうなポイントを予測して改善する", "マニュアルを分厚くする"], ans: 2, exp: "ユーザーがストレスなく目的を達成できるよう配慮することがUX向上の鍵です。" }
+    ],
+    "変化への適応": [
+        { q: "世の中がどんどん変わる中で、会社が生き残り続けるために必要なことは？", options: ["一度決めた計画は絶対に変えない", "新しいことを学び続けて、状況に合わせて自分たちを変える", "みんながやるまで待つ", "昔の成功を信じ続ける"], ans: 1, exp: "変化を怖がらず、常に自分たちをアップデートし続ける姿勢が適応力です。" },
+        { q: "これまでのやり方が通用しなくなった時、どうすべきですか？", options: ["もっと頑張ってこれまでのやり方を続ける", "新しい技術や考え方を取り入れ、やり方を変えてみる", "諦める", "誰かが助けてくれるのを待つ"], ans: 1, exp: "過去にこだわらず、新しい手段を試すことが変化への適応です。" },
+        { q: "VUCA（予測不能な時代）において、リーダーに求められる姿勢は？", options: ["全ての決定を自分一人で行う", "計画通りにいかないことを責める", "不確かな状況でも柔軟に軌道修正する", "変化が落ち着くまで何もしない"], ans: 2, exp: "不確実な時代には、状況に合わせて素早く判断を変える柔軟性が不可欠です。" }
+    ],
+    "コラボレーション": [
+        { q: "チームで協力して新しい価値を作る時に、一番良い方法は？", options: ["全員の意見が同じになるまで話し合う", "自分ができることだけやる", "色々な得意分野を持つ人が集まって、知恵を出し合う", "リーダーに全部決めてもらう"], ans: 2, exp: "多様な個性が集まることで、一人では到達できない解決策が見つかります。" },
+        { q: "他部署の人と協力する際、妨げになりやすい態度は？", options: ["自分の部署の利益だけを考える", "相手の困りごとを聞く", "共通のゴールを確認する", "情報をオープンにする"], ans: 0, exp: "「自分たちさえ良ければいい」という考えは、全体の価値創造を止めます。" },
+        { q: "心理的安全性が高いチームの特徴はどれ？", options: ["ミスをすると厳しく罰せられる", "他人の意見に反対してはいけない", "誰でも安心して自分の意見や失敗を話せる", "上下関係が非常に厳しい"], ans: 2, exp: "心理的安全性は、チームが失敗から学び、成長するために最も重要な土台です。" }
+    ],
+    "常識にとらわれない発想": [
+        { q: "新しいアイデアを出すために、まず最初にやるといいことは？", options: ["他社の成功をそのままマネる", "今までの『当たり前』や『決まりきったやり方』を一度疑ってみる", "上司の言う通りにする", "失敗しないように慎重に動く"], ans: 1, exp: "常識をリセットすることで、今まで見えていなかったチャンスが見つかります。" },
+        { q: "「今のままで十分利益が出ている」という時に必要な発想は？", options: ["今のやり方を守り抜く", "将来、今のやり方が効かなくなるリスクを考えて次を探す", "何もしない", "広告を増やす"], ans: 1, exp: "好調な時こそ、次の変化に備えて常識を変えていく必要があります。" },
+        { q: "イノベーションを生むための「ゼロベース思考」とは？", options: ["予算をゼロにすること", "過去の経緯を無視して、目的から白紙で考えること", "考えるのをやめて直感に従うこと", "新入社員にだけ考えさせること"], ans: 1, exp: "前提条件を取り払うことで、本質的な解決策が見えてきます。" }
+    ],
+    "反復的なアプローチ": [
+        { q: "新しいサービスを作る時、失敗を防ぐために良いやり方は？", options: ["時間をかけて100点満点を作ってから出す", "最小限の機能だけ作った試作品を早めに出して、反応を見て直す", "できるだけ安く作る", "後回しにする"], ans: 1, exp: "完璧を求めて時間をかけるより、早く出して直す方が結果的に良いものができます。" },
+        { q: "試作品を出してお客さんの反応が悪かった時、どう考えますか？", options: ["失敗だと思ってすぐに止める", "何がダメだったかという情報を得られたと捉え、次に活かす", "お客さんのせいににする", "広告が足りなかったと思う"], ans: 1, exp: "悪い反応も「学習」のひとつです。改善を繰り返すことが成功への近道です。" },
+        { q: "「アジャイル」な開発スタイルで最も重視されるのは？", options: ["詳細な計画書の作成", "大規模な予算の確保", "短いサイクルでの改善とリリース", "完璧なデザイン"], ans: 2, exp: "小さく試して改善を繰り返すアジャイルな姿勢が、変化の速い現代に適合します。" }
+    ],
+    "柔軟な意思決定": [
+        { q: "進めていた計画を「変えたほうがいい」と判断すべきなのはどんな時？", options: ["作業が少し遅れた時", "上司が別のことを思いついた時", "集まったデータから、当初の予想が外れているとわかった時", "怖くなった時"], ans: 2, exp: "事実に合わせて柔軟に判断を変えることが、大きな損失を防ぎます。" },
+        { q: "プロジェクトが難航している際、埋没費用（サンクコスト）をどう扱うべき？", options: ["これまでのお金と時間がもったいないので継続する", "過去の費用は無視し、これからの成果のみで判断する", "責任者が変わるまで放置する", "倍の予算を投入して挽回する"], ans: 1, exp: "過去の投資に囚われず、未来の価値を冷静に判断するのが柔軟な意思決定です。" },
+        { q: "判断を下す際に、スピードを重視すべき理由は？", options: ["後で謝ればいいから", "早く終わらせて休みたいから", "機会損失を防ぎ、早く検証サイクルを回せるから", "部下を急かせるため"], ans: 2, exp: "遅い正しい判断より、早い修正可能な判断の方が価値を生む場合があります。" }
+    ],
+    "事実に基づく判断": [
+        { q: "データを使って物事を判断する時に、気をつけることは？", options: ["自分の勘や思い込みだけで決めず、客観的な数字や事実を見る", "計算を早く終わらせること", "自分が正しいと思う理由を補強する数字だけ探す", "難しい数式をたくさん使う"], ans: 0, exp: "「たぶんこうだろう」ではなく「事実はこうだ」という姿勢がミスを減らします。" },
+        { q: "アンケート結果を見る際に注意すべきポイントは？", options: ["回答数さえ多ければ信じて良い", "自分の意見に近い回答だけを抜き出す", "質問の仕方が回答を誘導していないか確認する", "グラフの色をきれいにする"], ans: 2, exp: "データの裏側にある背景や偏りを疑うことが、正しい判断に繋がります。" },
+        { q: "「KPI」を正しく設定する目的は何？", options: ["社員を監視するため", "目標の達成度合いを客観的に測るため", "単なるノルマとして使うため", "会議の時間を長くするため"], ans: 1, exp: "事実（数字）に基づいて進捗を管理するためにKPIは活用されます。" }
+    ],
+    "DXの背景（社会の変化）": [
+        { q: "今、なぜ多くの会社がデジタル化を急いでいるのですか？", options: ["国が紙を禁止したから", "人手が足りなくなり、人々の生活もスマホ中心になったから", "高齢者が増えてデジタルを嫌っているから", "日本が世界一になったから"], ans: 1, exp: "社会全体の変化に合わせて、働き方やサービスを変える必要があります。" },
+        { q: "「デジタル化」そのものが目的になってしまう失敗の原因は？", options: ["新しい技術を使いすぎるから", "解決したい課題や目的が明確でないから", "パソコンが古すぎるから", "社員が若すぎるから"], ans: 1, exp: "DXの本質は「手段」としてのデジタルを活用し、価値を変えることです。" },
+        { q: "「サブスクリプション」モデルが普及した社会的な背景は？", options: ["物を所有することから、利用することへ価値が移ったから", "単品で買うより必ず安いから", "インターネットが有料だから", "企業の利益が減っているから"], ans: 0, exp: "消費者の価値観が「所有」から「体験・利用」へ変化したことが背景にあります。" }
+    ],
+    "DXの背景（競争環境の変化）": [
+        { q: "デジタル化が進んだことで、ビジネスの競争はどう変わりましたか？", options: ["大企業だけが勝つようになった", "同じ業界の人だけを気にしていれば良くなった", "全く違う業界から、ITを武器にした新しいライバルが来るようになった", "広告さえ出せば売れるようになった"], ans: 2, exp: "業界の壁がなくなり、どこからでもライバルが現れる時代になりました。" },
+        { q: "GAFAなどの巨大IT企業が市場を席巻した主な要因は？", options: ["ただ運が良かっただけ", "圧倒的なデータの活用とプラットフォーム戦略", "政府の支援を強く受けたから", "CMをたくさん流したから"], ans: 1, exp: "データを集め、それを元にサービスを改善し続ける仕組みが競争力を生みます。" },
+        { q: "「破壊的イノベーション」が起きやすい業界の特徴は？", options: ["伝統を重んじ、変化が少ない業界", "新しい技術を拒む顧客が多い業界", "既存のやり方が非常に高価、または不便な業界", "法規制が全くない業界"], ans: 2, exp: "既存の不便さをデジタルで解消する新規参入者が業界を一変させます。" }
+    ],
+    "DXの背景（顧客価値の変化）": [
+        { q: "今の時代、お客さんはどんなことにお金を払いたいと思っていますか？", options: ["物をたくさん持ちたい", "有名なブランドなら何でもいい", "無料で使えること", "使うことで便利になったり、楽しい体験ができたりすること"], ans: 3, exp: "「持っていること」より「いかに便利か・楽しいか」に価値が移っています。" },
+        { q: "パーソナライズ（個別の最適化）が求められる理由は？", options: ["全員同じだと飽きるから", "自分にぴったりの情報やサービスを効率よく得たいから", "システムの性能が上がりすぎたから", "法律で決まっているから"], ans: 1, exp: "膨大な情報の中で、自分に必要なものだけを提供される価値が高まっています。" },
+        { q: "カスタマーサクセス（顧客の成功）を目指す姿勢として正しいのは？", options: ["売った後は何もしない", "不具合のクレーム対応だけ行う", "顧客がその製品を使って目的を達成できるよう積極的に支援する", "次の製品を買うよう強要する"], ans: 2, exp: "製品を売ることではなく、顧客が成果を出すことをゴールとする考え方です。" }
+    ]
+};
+
+const Lv2quiz = {
+    "クラウド": [
+        { q: "クラウドサービスを使う最大のメリットは？", options: ["自分のパソコンがなくても動く", "インターネットがなくても使える", "自分のパソコンに保存しなくて済む", "電気がなくても動く"], ans: 2, exp: "クラウドは、データを自分の端末ではなく、ネット上の大きな保管場所に置く仕組みです。" },
+        { q: "SaaS（サース）とは何ですか？", options: ["ネット経由で使うソフト", "パソコンの部品の名前", "インターネット回線の種類", "充電器の規格"], ans: 0, exp: "メールや表計算ソフトをインストールせずブラウザ等で使う形態です。" },
+        { q: "クラウドのデータはどこに保存されていますか？", options: ["空の雲の中", "誰かの家のPC", "専門のデータセンター", "電話回線の中"], ans: 2, exp: "「データセンター」という、巨大なサーバーが集まった専用施設で管理されています。" }
+    ],
+    "ネットワーク": [
+        { q: "Wi-Fiのパスワードを設定する理由は？", options: ["通信速度を速めるため", "知らない人にタダ乗りされないため", "電池の減りを抑えるため", "画面を綺麗にするため"], ans: 1, exp: "知らない人に回線を使われたり通信を盗み見られたりするのを防ぐためです。" },
+        { q: "ブラウザの鍵マーク（HTTPS）の意味は？", options: ["このサイトは有料です", "通信が暗号化されています", "ログインが必要です", "ウイルスが入っています"], ans: 1, exp: "データの送受信が暗号化され、安全に保護されていることを示します。" },
+        { q: "IPアドレスを簡単に例えると？", options: ["ネット上の電話番号", "ネット上の名前", "ネット上の住所", "ネット上の顔写真"], ans: 2, exp: "ネットワーク上の機器がどこにあるかを特定する住所のような役割です。" }
+    ],
+    "モラル": [
+        { q: "SNSに友人の写真を載せるときにすべきことは？", options: ["勝手に載せて良い", "友人の許可を得る", "夜中にこっそり載せる", "加工して面白くする"], ans: 1, exp: "他人のプライバシーや肖像権を尊重し、必ず許可を得るのがマナーです。" },
+        { q: "ネットで流れてきた「すごい噂」を見つけた時は？", options: ["すぐにみんなに広める", "本当かどうか確かめる", "とりあえず信じる", "無視して消す"], ans: 1, exp: "情報の出所を確認し、デマを拡散しないよう注意しましょう。" },
+        { q: "誹謗中傷（ひぼうちゅうしょう）とは？", options: ["相手を褒めること", "相手の悪口を言って傷つけること", "相手と友達になること", "相手に質問すること"], ans: 1, exp: "他人を攻撃する行為は厳禁です。画面の向こうに人がいることを忘れずに。" }
+    ],
+    "セキュリティ": [
+        { q: "パスワードの作り方で安全なのは？", options: ["自分の誕生日", "「123456」", "英数字を混ぜた長いもの", "名前と同じにする"], ans: 2, exp: "推測されにくい複雑なパスワードがセキュリティの基本です。" },
+        { q: "「怪しいメール」のリンクを開くとどうなる？", options: ["懸賞が当たる", "ウイルスに感染する恐れがある", "PCが速くなる", "画面が明るくなる"], ans: 1, exp: "偽サイトへの誘導や情報の盗み取りなどの被害に遭う可能性があります。" },
+        { q: "2段階認証とは何ですか？", options: ["2回クリックすること", "2人で使うこと", "パスワードと別の方法で確認する", "2分待つこと"], ans: 2, exp: "パスワードとは別の方法（SMS等）で本人確認を行い、安全性を高めます。" }
+    ],
+    "コンプライアンス": [
+        { q: "ネット上の画像を自分のHPで無断で使うのは？", options: ["自由に使って良い", "著作権侵害になる可能性がある", "出典を書けばOK", "少し加工すればOK"], ans: 1, exp: "他人の著作物を無断で使用することは法律違反になる場合があります。" },
+        { q: "会社で知った秘密をSNSに書くのは？", options: ["内容によるがOK", "コンプライアンス違反", "フォロワーが少なければOK", "すぐに消せばOK"], ans: 1, exp: "業務上の機密を漏洩させることは重大なルール違反です。" },
+        { q: "個人情報保護法とは何を保護するもの？", options: ["自分の家の鍵", "個人のプライバシーや権利", "ネットの通信速度", "PCの部品"], ans: 1, exp: "個人を特定できる情報を正しく扱うための法律です。" }
+    ],
+    "活用事例": [
+        { q: "キャッシュレス決済のメリットは？", options: ["お金を使いすぎる", "支払いがスムーズで履歴が残る", "店員と仲良くなれる", "スマホが熱くなる"], ans: 1, exp: "支払いの効率化と、利用履歴の自動管理ができる点がメリットです。" },
+        { q: "サブスクリプション（サブスク）とは？", options: ["定額制の使い放題サービス", "一度買ったら一生使える", "期間限定のセール", "予約注文のこと"], ans: 0, exp: "月額料金などを払うことで継続的にサービスを利用する形態です。" },
+        { q: "テレワーク（リモートワーク）とは？", options: ["電話をかけまくる仕事", "会社以外の場所で働くこと", "テレビを直す仕事", "ずっと座っている仕事"], ans: 1, exp: "場所にとらわれずネットを活用して働く柔軟なワークスタイルです。" }
+    ],
+    "ツール利用": [
+        { q: "チャットツール（SlackやTeams）の使い道は？", options: ["ゲームをするため", "仕事の連絡を素早く行うため", "動画を編集するため", "音楽を聴くため"], ans: 1, exp: "メールよりも迅速で、多人数でのリアルタイムな情報共有に適しています。" },
+        { q: "スプレッドシート（Excelなど）の得意なことは？", options: ["絵を描くこと", "表を作って計算すること", "動画を見ること", "長い物語を書くこと"], ans: 1, exp: "数値計算、データ管理、グラフ作成などに非常に強力なツールです。" },
+        { q: "ビデオ会議でマイクを「ミュート」にするとは？", options: ["自分の音を消す", "画面を消す", "相手を追い出す", "スピーカーを最大にする"], ans: 0, exp: "周囲の騒音が会議の邪魔にならないよう、自分の声を一時的に遮断することです。" }
+    ],
+    "AI": [
+        { q: "AI（人工知能）が最も得意なことは？", options: ["お腹を空かせる", "大量のデータから特徴を掴む", "自分の意思で旅行に行く", "人間と同じように悩む"], ans: 1, exp: "AIは膨大なデータから法則性や特徴を見出すのが得意です。" },
+        { q: "AIが嘘を答えてしまう現象を何と呼ぶ？", options: ["ハルシネーション", "イリュージョン", "スリープモード", "フリーズ"], ans: 0, exp: "もっともらしい嘘をつく現象で、回答の検証が必要です。" },
+        { q: "生成AIができることは？", options: ["部屋の掃除", "指示に応じて文章や画像を作る", "ご飯を作る", "空を飛ぶ"], ans: 1, exp: "プロンプトに応じて、新しいコンテンツを生成することができます。" }
+    ],
+    "ハードウェア・ソフトウェア": [
+        { q: "ソフトウェアとは簡単に言うと何？", options: ["PCの機械そのもの", "PCを動かすためのプログラム", "PCを入れるカバン", "PCの電源コード"], ans: 1, exp: "機械（ハード）に指示を出して動かす中身のプログラムのことです。" },
+        { q: "USBメモリの役割は？", options: ["画面を映す", "データを持ち運ぶ・保存する", "ネットにつなぐ", "音を出す"], ans: 1, exp: "小容量のデータを手軽に保存・移動させるための記憶媒体です。" },
+        { q: "PCの「再起動」が必要なときは？", options: ["キーボードを拭くとき", "動作が重かったり不安定なとき", "画面が眩しいとき", "マウスが汚れたとき"], ans: 1, exp: "システムの不調や設定の反映のために一度電源を入れ直す操作です。" }
+    ],
+    "データを読む・説明する": [
+        { q: "折れ線グラフをいつ使うのが良い？", options: ["内訳の割合を見せたいとき", "数字の推移（変化）を見せたいとき", "名前を並べたいとき", "写真を飾りたいとき"], ans: 1, exp: "時間の経過とともに数値がどう変化したかを見るのに適しています。" },
+        { q: "データの「平均値」とは？", options: ["一番多い数字", "全部足して個数で割ったもの", "ちょうど真ん中の数字", "一番大きな数字"], ans: 1, exp: "全体の合計を数で割った代表値ですが、極端な値に影響される点に注意です。" },
+        { q: "円グラフが100%になっていない時", options: ["正しいグラフではない", "とてもおしゃれなグラフ", "新しい種類のグラフ", "気にしなくて良い"], ans: 0, exp: "内訳を表す円グラフは、全ての合計が必ず100%になる必要があります。" }
+    ],
+    "社会におけるデータ": [
+        { q: "オープンデータとは？", options: ["誰でも自由に使って良い公的データ", "パスワードがかかっていないファイル", "自分のSNSの非公開写真", "有料で売っている情報"], ans: 0, exp: "二次利用が許可された、誰でも自由に利用・配布できるデータのことです。" },
+        { q: "データを集める際に最も注意すべきデータは？", options: ["天気予報", "個人情報", "昨日のニュース", "古い本の内容"], ans: 1, exp: "プライバシーに関わる情報の取り扱いは、法規に則った厳重な管理が必要です。" },
+        { q: "ビッグデータを活用する目的は？", options: ["HDDをいっぱいにすること", "新しいサービスや効率化に繋げるため", "PCを自慢するため", "文字を増やすため"], ans: 1, exp: "大量のデータから知見を得て、生活の向上やビジネスの最適化を図ります。" }
+    ],
+    "データによって判断する": [
+        { q: "「相関（そうかん）がある」とはどういう意味？", options: ["一方が増えると、もう一方も動く", "片方が壊れている", "同じ名前である", "全く関係がない"], ans: 0, exp: "2つのデータの間に、連動して変化する関係があることを言います。" },
+        { q: "データをもとに判断する良さは？", options: ["勘に頼らず客観的になれる", "必ず100%成功する", "計算しなくて良い", "考える必要がなくなる"], ans: 0, exp: "客観的な事実に基づき、バイアスや勘に左右されない判断がしやすくなります。" },
+        { q: "外れ値（はずれち）とは？", options: ["当たる予報", "他のデータから極端に離れた値", "正しいデータ", "文字化けしたデータ"], ans: 1, exp: "集団の中で、一つだけ極端に大きかったり小さかったりする異常な数値です。" }
+    ],
+    "データを扱う": [
+        { q: "csvファイルの特徴は？", options: ["文字化けしにくい", "多くのソフトで開ける単純な形式", "写真が綺麗に見える", "音楽が聴ける"], ans: 1, exp: "カンマ区切りの単純な形式で、表計算ソフトやシステム間で広く使われます。" },
+        { q: "バックアップをとるとはどういうこと？", options: ["後ろに下がる", "予備のコピーを保存する", "消去する", "名前を変える"], ans: 1, exp: "故障や紛失に備えて、別の場所にデータのコピーを保存しておくことです。" },
+        { q: "データベースとは簡単に言うと何？", options: ["データのゴミ箱", "データを整理して貯めた「基地」", "画面を光らせるソフト", "電源ボタンのこと"], ans: 1, exp: "大量のデータを後で活用しやすいよう、効率的に管理・保存する仕組みです。" }
+    ]
+};
+
+// --- 制御用変数 ---
+let currentSessionQuestions = [];
+let quizIndex = 0;
+let score = 0;
+let categoryAnalytics = {};
+let currentLevel = 0;
+
+function initQuiz(lv) {
+    currentLevel = lv;
+    const source = (lv === 1) ? Lv1quiz : Lv2quiz;
+    currentSessionQuestions = [];
+    categoryAnalytics = {};
+
+    // レベル表示の更新
+    const badge = document.getElementById('level-badge');
+    badge.innerText = `現在挑戦中：レベル ${lv}`;
+    badge.style.color = "var(--primary)";
+
+    // 各カテゴリーからランダムに1問ずつ抽出
+    for (let catName in source) {
+        const questions = source[catName];
+        const randomQ = questions[Math.floor(Math.random() * questions.length)];
+        currentSessionQuestions.push({ ...randomQ, category: catName });
+        categoryAnalytics[catName] = { isCorrect: false };
+    }
+
+    // 出題順をシャッフル
+    currentSessionQuestions.sort(() => Math.random() - 0.5);
+    quizIndex = 0;
+    score = 0;
+
+    document.getElementById('screen-start').classList.add('hidden');
+    document.getElementById('screen-result').classList.add('hidden');
+    document.getElementById('screen-quiz').classList.remove('hidden');
+    showQuestion();
+}
+
+function showQuestion() {
+    const item = currentSessionQuestions[quizIndex];
+    document.getElementById('ui-progress').innerText = `問題 ${quizIndex + 1} / ${currentSessionQuestions.length}`;
+    document.getElementById('ui-category').innerText = item.category;
+    document.getElementById('ui-question').innerText = item.q;
+
+    const optionsHtml = item.options.map((opt, i) =>
+        `<button class="opt-btn" onclick="checkAnswer(${i}, this)">${opt}</button>`
+    ).join('');
+
+    document.getElementById('ui-options').innerHTML = optionsHtml;
+    document.getElementById('feedback').style.display = "none";
+}
+
+function checkAnswer(idx, btn) {
+    const item = currentSessionQuestions[quizIndex];
+    const isCorrect = (idx === item.ans);
+    const feedback = document.getElementById('feedback');
+    const msg = document.getElementById('ui-result-msg');
+    const exp = document.getElementById('ui-explanation');
+
+    const allBtns = document.querySelectorAll('.opt-btn');
+    allBtns.forEach(b => b.disabled = true);
+
+    if (isCorrect) {
+        score++;
+        categoryAnalytics[item.category].isCorrect = true;
+        msg.innerText = "正解！";
+        feedback.className = "correct-box";
+        btn.style.borderColor = "var(--success)";
+        btn.style.background = "#f0fdf4";
+    } else {
+        msg.innerText = "残念！不正解...";
+        feedback.className = "incorrect-box";
+        btn.style.borderColor = "var(--error)";
+        btn.style.background = "#fef2f2";
+        allBtns[item.ans].style.borderColor = "var(--success)";
+        allBtns[item.ans].style.borderWidth = "2px";
+    }
+    exp.innerText = item.exp;
+}
+
+function nextQuestion() {
+    quizIndex++;
+    if (quizIndex < currentSessionQuestions.length) {
+        showQuestion();
+    } else {
+        showResult();
+    }
+}
+
+function showResult() {
+    document.getElementById('screen-quiz').classList.add('hidden');
+    document.getElementById('screen-result').classList.remove('hidden');
+    document.getElementById('level-badge').innerText = `レベル ${currentLevel} 完了`;
+    document.getElementById('ui-score').innerText = `${currentSessionQuestions.length}問中 ${score}問正解！`;
+
+    // 弱点カテゴリー特定
+    let incorrectCats = Object.keys(categoryAnalytics).filter(cat => !categoryAnalytics[cat].isCorrect);
+    let weakCat = incorrectCats.length > 0
+        ? incorrectCats[Math.floor(Math.random() * incorrectCats.length)]
+        : Object.keys(categoryAnalytics)[0];
+
+    document.getElementById('weak-cat-display').innerText = `あなたは"${weakCat}"のカテゴリーが苦手なようです`;
+    document.getElementById('copy-prompt').innerText = `"${weakCat}"について、初心者でもわかるように大事な３つを教えて`;
+}
+
+function copyToClipboard() {
+    const text = document.getElementById('copy-prompt').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        const originalText = btn.innerText;
+        btn.innerText = "完了！";
+        btn.style.background = "var(--success)";
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.style.background = "var(--primary)";
+        }, 2000);
+    });
+}
+</script>
+
+</body>
+</html>

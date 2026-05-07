@@ -503,6 +503,79 @@ const ROBOT_COLORS = [
   0x4dd0e1, 0xdce775, 0xff8a65, 0x90caf9, 0x80cbc4,
 ];
 
+const ROBOT_PROFILES = [
+  {
+    name: 'レオ',
+    intro: 'おれはレオ！街で一番足が速いんだ。なんか用？',
+    escape: 'そんなの知っててどうすんのさ！じゃあな！',
+    style: (m) => m.replace(/です|ます/g, "だぜ").replace(/。/g, "！")
+  },
+  {
+    name: 'アリサ',
+    intro: '案内ロボットのアリサです。何かお手伝いしましょうか？',
+    escape: 'その件は照会中です。それでは失礼します。',
+    style: (m) => m
+  },
+  {
+    name: 'タロ',
+    intro: '俺はタロだ。用があるなら手短にしな。',
+    escape: 'ガタガタ言うんじゃねえ！あばよ！',
+    style: (m) => m.replace(/ですね|ます|ですよ/g, "だ").replace(/。/g, "。用がねえなら消えな。")
+  },
+  {
+    name: 'ミク',
+    intro: 'ミクだよっ☆ 今日もキラキラな一日にしようね！',
+    escape: 'それは企業秘密だよっ☆ バイバイっ！',
+    style: (m) => m.replace(/。/g, "☆")
+  },
+  {
+    name: 'ケン',
+    intro: '私はケン。データ解析を担当しています。',
+    escape: '論理的推論が不可能です。解析に戻ります。さようなら。',
+    style: (m) => "推論結果：" + m
+  },
+  {
+    name: 'ハナ',
+    intro: '私はハナ。お花とお話するのが大好きなの。',
+    escape: '風が教えてくれるのを待ちましょう。ごきげんよう。',
+    style: (m) => "ふふ、" + m.replace(/。/g, "。お花もそう言ってるわ。")
+  },
+  {
+    name: 'ソラ',
+    intro: '……ソラだ。私の正体を探るな。用件を言え。',
+    escape: '……知りすぎたようだな。これ以上はノーコメントだ。',
+    style: (m) => "……" + m
+  },
+  {
+    name: 'リン',
+    intro: 'ヤッホー！リンだよ。てかその服マジウケるんだけど！',
+    escape: 'それな！マジ意味不〜ｗ はい終了、お疲れ〜！',
+    style: (m) => "マジそれな！" + m.replace(/。/g, "！ヤバくない？")
+  },
+  {
+    name: 'カイ',
+    intro: '僕はカイ。街の呼吸を数えている者だよ。',
+    escape: '答えは君の心の中にある。また、風の吹く場所で。',
+    style: (m) => "風の歌が聞こえる…" + m
+  },
+  {
+    name: 'ユキ',
+    intro: 'ﾜﾀｼ...ﾕｷ...。古い...モデル...デス...。',
+    escape: 'ｱ...ｻｱ...ｿﾚﾊ...ﾄﾞｳｶﾅ...？ ｻﾖ...ﾅﾗ...。',
+    style: (m) => m.split('').join('...') + "..."
+  }
+];
+
+const COMMON_PATTERNS = [
+  { pattern: /こんにちは|おはよ|こんばんは|ハロー/, reply: "こんにちは。良い一日ですね。" },
+  { pattern: /天気|晴れ|雨|暑い|寒い/, reply: "天気の話ですか。空が綺麗だといいですね。" },
+  { pattern: /何/, reply: "ここであなたと出会うのを待っていました。" },
+  { pattern: /美味|食|ごはん|腹/, reply: "この街の水素で焼いたパンは絶品ですよ。" },
+  { pattern: /すす|勧|スス|どこ/, reply: "モビリティが走り抜けるメインストリートがおすすめです。" },
+  { pattern: /元気|機嫌/, reply: "私は絶好調ですよ。あなたは調子どうですか？" },
+  { pattern: /可愛|かっこ|格好|素敵|いい|感じ|イケてる/, reply: "ありがとうございます。そんなふうに言ってもらえるなんて光栄です！" }
+];
+
 function makeRobot(index) {
   const c     = ROBOT_COLORS[index];
   const cMat  = mat(c);
@@ -665,6 +738,103 @@ startBtn.addEventListener('click', () => {
   renderer.domElement.requestPointerLock();
 });
 
+// ─── Chat state ───────────────────────────────────────────────────────────────
+let chatRobotRef = null;
+let chatCount = 0;
+let isChatOver = false;
+
+function openChat(robot) {
+  chatRobotRef = robot;
+  chatCount = 0;
+  isChatOver = false;
+
+  const profile = ROBOT_PROFILES[robot.userData.index];
+  document.getElementById('chat-robot-name').textContent = profile.name;
+  document.getElementById('messages').innerHTML = '';
+  const inp = document.getElementById('user-input');
+  inp.value = '';
+  inp.disabled = false;
+  document.getElementById('send-btn').disabled = false;
+  document.getElementById('chat-panel').classList.add('open');
+
+  document.exitPointerLock();
+  robot.userData.state = 'chat';
+
+  addMessage(profile.intro, 'bot');
+  setTimeout(() => inp.focus(), 150);
+}
+
+function closeChat() {
+  document.getElementById('chat-panel').classList.remove('open');
+
+  const robot = chatRobotRef;
+  chatRobotRef = null;
+
+  if (robot) {
+    const ud = robot.userData;
+    if (!ud.greeted) {
+      ud.greeted = true;
+      ud.state = 'wave';
+      ud.waveTimer = 0;
+      player.greetedCount++;
+      greetCountEl.textContent = player.greetedCount;
+      addGreetedMarker(robot);
+      if (player.greetedCount >= 10) {
+        goalAchieved = true;
+        setTimeout(() => goalEl.classList.add('show'), 800);
+      }
+    } else {
+      ud.state = 'walk';
+      ud.target = randomWalkTarget(robot.position.x, robot.position.z);
+    }
+  }
+
+  if (gameStarted) renderer.domElement.requestPointerLock();
+}
+
+function getReply(text) {
+  const profile = ROBOT_PROFILES[chatRobotRef.userData.index];
+  for (const item of COMMON_PATTERNS) {
+    if (text.match(item.pattern)) return profile.style(item.reply);
+  }
+  return null;
+}
+
+function handleSend() {
+  if (isChatOver || !chatRobotRef) return;
+  const input = document.getElementById('user-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  addMessage(text, 'user');
+  input.value = '';
+
+  const profile = ROBOT_PROFILES[chatRobotRef.userData.index];
+  setTimeout(() => {
+    chatCount++;
+    const reply = getReply(text);
+    if (reply === null || chatCount >= 3) {
+      addMessage(profile.escape, 'bot');
+      addMessage('（ロボットはどこかへ去ってしまいました）', 'system');
+      isChatOver = true;
+      document.getElementById('send-btn').disabled = true;
+      document.getElementById('user-input').disabled = true;
+      setTimeout(closeChat, 2200);
+    } else {
+      addMessage(reply, 'bot');
+    }
+  }, 700);
+}
+
+function addMessage(text, sender) {
+  const div = document.createElement('div');
+  div.className = `msg ${sender}`;
+  div.textContent = text;
+  const container = document.getElementById('messages');
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
 // ─── Clock ───────────────────────────────────────────────────────────────────
 const clock = new THREE.Clock();
 let elapsed = 0;
@@ -675,6 +845,16 @@ function updateRobots(dt) {
 
   robots.forEach(robot => {
     const ud = robot.userData;
+
+    // --- Chat state: face player, stay still ---
+    if (ud.state === 'chat') {
+      const dx = player.pos.x - robot.position.x;
+      const dz = player.pos.z - robot.position.z;
+      robot.rotation.y = Math.atan2(dx, dz);
+      ud.armL.rotation.x = 0; ud.armR.rotation.x = 0;
+      ud.legL.rotation.x = 0; ud.legR.rotation.x = 0;
+      return;
+    }
 
     // --- Wave state: play wave animation, then return to walk ---
     if (ud.state === 'wave') {
@@ -797,8 +977,8 @@ function animate() {
   const nz  = player.pos.z + mz * spd;
   const BOUND = 40;
 
-  if (!collidesBuilding(nx, player.pos.z) && Math.abs(nx) < BOUND) player.pos.x = nx;
-  if (!collidesBuilding(player.pos.x, nz) && Math.abs(nz) < BOUND) player.pos.z = nz;
+  if (!chatRobotRef && !collidesBuilding(nx, player.pos.z) && Math.abs(nx) < BOUND) player.pos.x = nx;
+  if (!chatRobotRef && !collidesBuilding(player.pos.x, nz) && Math.abs(nz) < BOUND) player.pos.z = nz;
 
   // ── Camera: 3rd person chase cam ────────────────────────────────────────
   const camDist   = 4.5;
@@ -844,28 +1024,15 @@ function animate() {
     }
   });
 
-  // ── Greeting interaction ─────────────────────────────────────────────────
+  // ── Chat interaction ──────────────────────────────────────────────────────
   const eDown = !!keys['KeyE'];
-  if (nearRobot && eDown && !prevE && !goalAchieved) {
-    const ud = nearRobot.userData;
-    if (!ud.greeted) {
-      ud.greeted   = true;
-      ud.state     = 'wave';
-      ud.waveTimer = 0;
-      player.greetedCount++;
-      greetCountEl.textContent = player.greetedCount;
-      addGreetedMarker(nearRobot);
-
-      if (player.greetedCount >= 10) {
-        goalAchieved = true;
-        setTimeout(() => { goalEl.classList.add('show'); }, 800);
-      }
-    }
+  if (nearRobot && eDown && !prevE && !goalAchieved && !chatRobotRef) {
+    openChat(nearRobot);
   }
   prevE = eDown;
 
   // ── HUD ──────────────────────────────────────────────────────────────────
-  if (nearRobot && !goalAchieved) {
+  if (nearRobot && !goalAchieved && !chatRobotRef) {
     promptEl.style.display  = 'block';
     robotNameEl.style.display = 'block';
     robotNameEl.textContent = `🤖 ${nearRobot.userData.name}`;
@@ -876,5 +1043,9 @@ function animate() {
 
   renderer.render(scene, camera);
 }
+
+document.getElementById('user-input').addEventListener('keypress', e => {
+  if (e.key === 'Enter') handleSend();
+});
 
 animate();
